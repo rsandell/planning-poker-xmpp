@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">planning-poker-xmpp</string>
+    <string name="server">Server:</string>
+    <string name="userName">Username:</string>
+    <string name="password">Password:</string>
+    <string name="exit">Exit</string>
+    <string name="login">Login</string>
+    <string name="exitAreYouSure">"Are you sure you want to exit?"</string>
+</resources>
