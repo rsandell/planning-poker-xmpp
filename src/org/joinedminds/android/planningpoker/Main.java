@@ -46,6 +46,7 @@ import org.jivesoftware.smack.XMPPException;
 public class Main extends Activity {
 
     public static final int DIALOG_CONFIRM_EXIT = 1;
+    public static final int DIALOG_LOGIN_PROGRESS = 2;
 
     private EditText serverEdit;
     private EditText userEdit;
@@ -79,7 +80,7 @@ public class Main extends Activity {
     }
 
     private void startLogin() {
-        loginProgressDialog = ProgressDialog.show(this, "", "logging in...", true);
+        showDialog(DIALOG_LOGIN_PROGRESS);
         new LoginThread(loginHandler,
                 serverEdit.getText().toString(),
                 userEdit.getText().toString(),
@@ -105,6 +106,11 @@ public class Main extends Activity {
         switch (id) {
             case DIALOG_CONFIRM_EXIT:
                 return createConfirmExitDialog();
+            case DIALOG_LOGIN_PROGRESS:
+                loginProgressDialog = new ProgressDialog(this);
+                loginProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+                loginProgressDialog.setMessage("logging in...");
+                return loginProgressDialog;
         }
         return null;
     }
