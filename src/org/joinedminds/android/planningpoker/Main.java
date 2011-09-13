@@ -91,12 +91,22 @@ public class Main extends Activity {
         @Override
         public void handleMessage(Message msg) {
             if (msg.obj instanceof Exception) {
-                Exception e = (Exception)msg.obj;
-                Toast.makeText(Main.this, e.getMessage(), Toast.LENGTH_SHORT).show();
-                loginProgressDialog.dismiss();
+                final Exception e = (Exception)msg.obj;
+                Runnable runnable = new Runnable() {
+                    public void run() {
+                        Toast.makeText(Main.this, e.getMessage(), Toast.LENGTH_SHORT).show();
+                        loginProgressDialog.dismiss();
+                    }
+                };
+                runOnUiThread(runnable);
             } else if (msg.obj instanceof Connection) {
-                Toast.makeText(Main.this, "OK", Toast.LENGTH_LONG);
-                loginProgressDialog.dismiss();
+                Runnable runnable = new Runnable() {
+                    public void run() {
+                        Toast.makeText(Main.this, "OK", Toast.LENGTH_LONG).show();
+                        loginProgressDialog.dismiss();
+                    }
+                };
+                runOnUiThread(runnable);
             }
         }
     };
