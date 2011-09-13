@@ -29,16 +29,12 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.Toast;
-import org.jivesoftware.smack.Connection;
-import org.jivesoftware.smack.XMPPConnection;
-import org.jivesoftware.smack.XMPPException;
 
 /**
  * Main login activity.
@@ -46,12 +42,12 @@ import org.jivesoftware.smack.XMPPException;
 public class Main extends Activity {
 
     public static final int DIALOG_CONFIRM_EXIT = 1;
-    public static final int DIALOG_LOGIN_PROGRESS = 2;
 
     private EditText serverEdit;
     private EditText userEdit;
     private EditText passwordEdit;
     private ProgressDialog loginProgressDialog;
+    private SharedPreferences sharedPreferences;
 
     /**
      * Called when the activity is first created.
@@ -63,6 +59,11 @@ public class Main extends Activity {
         serverEdit = (EditText)findViewById(R.id.serverEdit);
         userEdit = (EditText)findViewById(R.id.userEdit);
         passwordEdit = (EditText)findViewById(R.id.passwordEdit);
+
+        sharedPreferences = getSharedPreferences(Constants.SHARED_LOGINSETTINGS, Activity.MODE_PRIVATE);
+        serverEdit.setText(sharedPreferences.getString(Constants.PREF_KEY_SERVER, Constants.DEFAULT_SERVER));
+        userEdit.setText(sharedPreferences.getString(Constants.PREF_KEY_USERNAME, Constants.DEFAULT_USERNAME));
+        passwordEdit.setText(sharedPreferences.getString(Constants.PREF_KEY_PASSWORD, Constants.DEFAULT_PASSWORD));
 
         Button btn = (Button)findViewById(R.id.exitBtn);
         btn.setOnClickListener(new View.OnClickListener() {
@@ -79,48 +80,14 @@ public class Main extends Activity {
 
     }
 
-    private void startLogin() {
-        showDialog(DIALOG_LOGIN_PROGRESS);
-        new LoginThread(loginHandler,
-                serverEdit.getText().toString(),
-                userEdit.getText().toString(),
-                passwordEdit.getText().toString()).start();
-    }
 
-    final Handler loginHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            if (msg.obj instanceof Exception) {
-                final Exception e = (Exception)msg.obj;
-                Runnable runnable = new Runnable() {
-                    public void run() {
-                        Toast.makeText(Main.this, e.getMessage(), Toast.LENGTH_SHORT).show();
-                        loginProgressDialog.dismiss();
-                    }
-                };
-                runOnUiThread(runnable);
-            } else if (msg.obj instanceof Connection) {
-                Runnable runnable = new Runnable() {
-                    public void run() {
-                        Toast.makeText(Main.this, "OK", Toast.LENGTH_LONG).show();
-                        loginProgressDialog.dismiss();
-                    }
-                };
-                runOnUiThread(runnable);
-            }
-        }
-    };
 
     @Override
     protected Dialog onCreateDialog(int id) {
         switch (id) {
             case DIALOG_CONFIRM_EXIT:
                 return createConfirmExitDialog();
-            case DIALOG_LOGIN_PROGRESS:
-                loginProgressDialog = new ProgressDialog(this);
-                loginProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-                loginProgressDialog.setMessage("logging in...");
-                return loginProgressDialog;
+
         }
         return null;
     }
@@ -142,31 +109,19 @@ public class Main extends Activity {
         return builder.create();
     }
 
-    private static class LoginThread extends Thread {
-        private Handler handler;
-        private String server;
-        private String username;
-        private String password;
+    private void startLogin() {
 
-        public LoginThread(Handler handler, String server, String username, String password) {
-            super("Login-Thread");
-            this.handler = handler;
-            this.server = server;
-            this.username = username;
-            this.password = password;
-        }
+        String server = serverEdit.getText().toString();
+        String username = userEdit.getText().toString();
+        String password = passwordEdit.getText().toString();
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString(Constants.PREF_KEY_SERVER, server);
+        editor.putString(Constants.PREF_KEY_USERNAME, username);
+        editor.putString(Constants.PREF_KEY_PASSWORD, password);
+        editor.commit();
 
-        @Override
-        public void run() {
-            Connection conn = new XMPPConnection(server);
-            try {
-                conn.connect();
-                conn.login(username, password, "planning-poker-xmpp");
-                handler.dispatchMessage(handler.obtainMessage(1, conn));
-            } catch (XMPPException e) {
-                Message msg = handler.obtainMessage(1, e);
-                handler.dispatchMessage(msg);
-            }
-        }
+        //TODO Start Activity
+        Intent startIntent = new Intent(Main.this, PlanningActivity.class);
+        startActivity(startIntent);
     }
 }
