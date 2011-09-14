@@ -38,6 +38,7 @@ import org.jivesoftware.smack.Connection;
 import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
+import org.joinedminds.android.planningpoker.logic.PlanningListener;
 import org.joinedminds.android.planningpoker.logic.PlanningManager;
 
 import static org.joinedminds.android.planningpoker.Constants.*;
@@ -48,18 +49,14 @@ import static org.joinedminds.android.planningpoker.Constants.CARD_VALUES;
  *
  * @author Robert Sandell &lt;sandell.robert@gmail.com&gt;
  */
-public class PlanningActivity extends Activity {
+public class PlanningActivity extends Activity implements PlanningListener {
 
-    public static final int DIALOG_LOGIN_PROGRESS = 2;
     public static final int OPTION_INVITE_TO_PLAN = 3;
 
-    private SharedPreferences preferences;
-    private ProgressDialog loginProgressDialog;
     private GridView gridView;
 
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        preferences = getSharedPreferences(SHARED_LOGINSETTINGS, MODE_PRIVATE);
 
         setContentView(R.layout.cardgrid);
         gridView = (GridView)findViewById(R.id.cardgrid);
@@ -73,99 +70,47 @@ public class PlanningActivity extends Activity {
                 }
             }
         });
-
-        startLogin();
+        PlanningManager.getInstance().setPlanningListener(this);
     }
+
 
     private void cardSelected(String s) {
         Toast.makeText(this, "Card Selected: " + s, Toast.LENGTH_SHORT).show();
         System.out.println("Card Selected: " + s);
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(0, OPTION_INVITE_TO_PLAN, Menu.NONE, R.string.optionInviteToPlan);
-        return super.onCreateOptionsMenu(menu);
-    }
 
     @Override
     protected Dialog onCreateDialog(int id) {
         switch (id) {
-            case DIALOG_LOGIN_PROGRESS:
-                loginProgressDialog = new ProgressDialog(this);
-                loginProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-                loginProgressDialog.setMessage("logging in...");
-                return loginProgressDialog;
+
         }
         return null;
     }
 
-    private void startLogin() {
-        showDialog(DIALOG_LOGIN_PROGRESS);
 
-        String server = preferences.getString(PREF_KEY_SERVER, "");
-        String username = preferences.getString(PREF_KEY_USERNAME, "");
-        String password = preferences.getString(PREF_KEY_PASSWORD, "");
-        int port = preferences.getInt(PREF_KEY_PORT, DEFAULT_PORT);
-
-        new LoginThread(loginHandler,
-                server,
-                port,
-                username,
-                password).start();
+    @Override
+    public void communicationError(Exception ex) {
+        Toast.makeText(this, ex.getMessage(), Toast.LENGTH_LONG).show();
     }
 
-    final Handler loginHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            if (msg.obj instanceof Exception) {
-                final Exception e = (Exception)msg.obj;
-                Runnable runnable = new Runnable() {
-                    public void run() {
-                        Toast.makeText(PlanningActivity.this, e.getMessage(), Toast.LENGTH_SHORT).show();
-                        loginProgressDialog.dismiss();
-                        e.printStackTrace();
-                        PlanningActivity.this.finish();
-                    }
-                };
-                runOnUiThread(runnable);
-            } else if (msg.obj instanceof Boolean && msg.obj == Boolean.TRUE) {
-                Runnable runnable = new Runnable() {
-                    public void run() {
-                        Toast.makeText(PlanningActivity.this, "OK", Toast.LENGTH_LONG).show();
-                        loginProgressDialog.dismiss();
-                    }
-                };
-                runOnUiThread(runnable);
-            }
-        }
-    };
+    @Override
+    public void invite(String fromUser, String[] participants) {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
 
-    private static class LoginThread extends Thread {
-        private Handler handler;
-        private String server;
-        private int port;
-        private String username;
-        private String password;
+    @Override
+    public void newRound(String fromUser) {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
 
-        public LoginThread(Handler handler, String server, int port, String username, String password) {
-            super("Login-Thread");
-            this.handler = handler;
-            this.server = server;
-            this.port = port;
-            this.username = username;
-            this.password = password;
-        }
+    @Override
+    public void cardSelect(String fromUser, String card) {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
 
-        @Override
-        public void run() {
-            try {
-                PlanningManager.initiate(server, port, username, password);
-                handler.dispatchMessage(handler.obtainMessage(1, Boolean.TRUE));
-            } catch (XMPPException e) {
-                Message msg = handler.obtainMessage(1, e);
-                handler.dispatchMessage(msg);
-            }
-        }
+    @Override
+    public void inviteResponse(String fromUser, boolean accepted) {
+        //To change body of implemented methods use File | Settings | File Templates.
     }
 }

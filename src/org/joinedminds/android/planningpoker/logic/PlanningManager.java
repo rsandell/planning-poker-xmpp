@@ -63,6 +63,10 @@ public class PlanningManager implements MessageListener {
         connection.login(username, password, "planning-poker-xmpp");
     }
 
+    public void setPlanningListener(PlanningListener listener) {
+        this.listener = listener;
+    }
+
     public static void initiate(String server, int port, String username, String password, PlanningListener listener) throws XMPPException {
         try {
             instance = new PlanningManager(server, port, username, password, listener);
@@ -100,7 +104,7 @@ public class PlanningManager implements MessageListener {
     public void startPlanning(String[] users) throws IOException, XMPPException {
         List<Chat> chatList = new LinkedList<Chat>();
         for (String user : users) {
-            Chat c = connection.getChatManager().createChat(user, "planning", this);
+            Chat c = connection.getChatManager().createChat(user, this);
             chatList.add(c);
         }
         session = new ChatSession(chatList, username);
@@ -113,28 +117,32 @@ public class PlanningManager implements MessageListener {
             session.echoToOthers(message, chat);
         } catch (XMPPException e) {
             e.printStackTrace();
-            listener.communicationError(e);
-        }
-        try {
-            MessageProperties properties = MessageProperties.fromMessageString(message.getBody());
-            switch (properties.getType()) {
-                case Invite:
-                    notifyInvite(properties);
-                    break;
-                case NewRound:
-                    listener.newRound(properties.getProperty(MessageKey.User));
-                    break;
-                case CardSelect:
-                    listener.cardSelect(properties.getProperty(MessageKey.User),
-                            properties.getProperty(MessageKey.Card));
-                    break;
-                case InviteResponse:
-                    listener.inviteResponse(properties.getProperty(MessageKey.User),
-                            properties.getBooleanProperty(MessageKey.Response));
+            if (listener != null) {
+                listener.communicationError(e);
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-            listener.communicationError(e);
+        }
+        if (listener != null) {
+            try {
+                MessageProperties properties = MessageProperties.fromMessageString(message.getBody());
+                switch (properties.getType()) {
+                    case Invite:
+                        notifyInvite(properties);
+                        break;
+                    case NewRound:
+                        listener.newRound(properties.getProperty(MessageKey.User));
+                        break;
+                    case CardSelect:
+                        listener.cardSelect(properties.getProperty(MessageKey.User),
+                                properties.getProperty(MessageKey.Card));
+                        break;
+                    case InviteResponse:
+                        listener.inviteResponse(properties.getProperty(MessageKey.User),
+                                properties.getBooleanProperty(MessageKey.Response));
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                listener.communicationError(e);
+            }
         }
     }
 

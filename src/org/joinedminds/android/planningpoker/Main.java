@@ -48,7 +48,6 @@ public class Main extends Activity {
     private EditText userEdit;
     private EditText passwordEdit;
     private EditText portEdit;
-    private ProgressDialog loginProgressDialog;
     private SharedPreferences sharedPreferences;
 
     /**
@@ -62,6 +61,8 @@ public class Main extends Activity {
         userEdit = (EditText)findViewById(R.id.userEdit);
         passwordEdit = (EditText)findViewById(R.id.passwordEdit);
         portEdit = (EditText)findViewById(R.id.portEdit);
+
+        serverEdit.requestFocus();
 
         sharedPreferences = getSharedPreferences(Constants.SHARED_LOGINSETTINGS, Activity.MODE_PRIVATE);
         serverEdit.setText(sharedPreferences.getString(Constants.PREF_KEY_SERVER, Constants.DEFAULT_SERVER));
@@ -83,8 +84,6 @@ public class Main extends Activity {
         });
 
     }
-
-
 
     @Override
     protected Dialog onCreateDialog(int id) {
@@ -114,7 +113,6 @@ public class Main extends Activity {
     }
 
     private void startLogin() {
-
         String server = serverEdit.getText().toString();
         String username = userEdit.getText().toString();
         String password = passwordEdit.getText().toString();
@@ -134,7 +132,7 @@ public class Main extends Activity {
         editor.commit();
 
         //TODO Start Activity
-        Intent startIntent = new Intent(Main.this, PlanningActivity.class);
+        Intent startIntent = new Intent(Main.this, BeginActivity.class);
         startActivity(startIntent);
     }
 }

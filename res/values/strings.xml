@@ -10,6 +10,9 @@
     <string name="poker">Poker</string>
     <string name="optionInviteToPlan">Invite Friends</string>
     <string name="port">Port</string>
-    <string name="sendInviteBtn">Send invite to start planning to other people</string>
+    <string name="sendInviteBtn">Send out invite to start planning</string>
     <string name="orWaitForInvite">Or wait for an invite to be sent to you...</string>
+    <string name="gotInvite">%1$s invites you to a game of planning poker. Other invited users: </string>
+    <string name="invite">Invite</string>
+    <string name="decline">Decline</string>
 </resources>

@@ -12,6 +12,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".PlanningActivity" android:label="@string/poker"/>
+        <activity android:name=".BeginActivity"/>
     </application>
     <uses-permission android:name="android.permission.INTERNET"/>
 </manifest>
