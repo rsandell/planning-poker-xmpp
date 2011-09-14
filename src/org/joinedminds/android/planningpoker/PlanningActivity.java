@@ -35,8 +35,10 @@ import android.view.Menu;
 import android.view.View;
 import android.widget.*;
 import org.jivesoftware.smack.Connection;
+import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
+import org.joinedminds.android.planningpoker.logic.PlanningManager;
 
 import static org.joinedminds.android.planningpoker.Constants.*;
 import static org.joinedminds.android.planningpoker.Constants.CARD_VALUES;
@@ -64,7 +66,8 @@ public class PlanningActivity extends Activity {
         gridView.setAdapter(new ArrayAdapter<String>(this, R.layout.card, CARD_VALUES));
         gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Toast.makeText(PlanningActivity.this, "Click", Toast.LENGTH_SHORT).show();
                 if (view instanceof TextView) {
                     cardSelected(((TextView)view).getText().toString());
                 }
@@ -103,9 +106,11 @@ public class PlanningActivity extends Activity {
         String server = preferences.getString(PREF_KEY_SERVER, "");
         String username = preferences.getString(PREF_KEY_USERNAME, "");
         String password = preferences.getString(PREF_KEY_PASSWORD, "");
+        int port = preferences.getInt(PREF_KEY_PORT, DEFAULT_PORT);
 
         new LoginThread(loginHandler,
                 server,
+                port,
                 username,
                 password).start();
     }
@@ -119,11 +124,12 @@ public class PlanningActivity extends Activity {
                     public void run() {
                         Toast.makeText(PlanningActivity.this, e.getMessage(), Toast.LENGTH_SHORT).show();
                         loginProgressDialog.dismiss();
+                        e.printStackTrace();
                         PlanningActivity.this.finish();
                     }
                 };
                 runOnUiThread(runnable);
-            } else if (msg.obj instanceof Connection) {
+            } else if (msg.obj instanceof Boolean && msg.obj == Boolean.TRUE) {
                 Runnable runnable = new Runnable() {
                     public void run() {
                         Toast.makeText(PlanningActivity.this, "OK", Toast.LENGTH_LONG).show();
@@ -138,25 +144,24 @@ public class PlanningActivity extends Activity {
     private static class LoginThread extends Thread {
         private Handler handler;
         private String server;
+        private int port;
         private String username;
         private String password;
 
-        public LoginThread(Handler handler, String server, String username, String password) {
+        public LoginThread(Handler handler, String server, int port, String username, String password) {
             super("Login-Thread");
             this.handler = handler;
             this.server = server;
+            this.port = port;
             this.username = username;
             this.password = password;
         }
 
         @Override
         public void run() {
-
-            Connection conn = new XMPPConnection(server);
             try {
-                conn.connect();
-                conn.login(username, password, "planning-poker-xmpp");
-                handler.dispatchMessage(handler.obtainMessage(1, conn));
+                PlanningManager.initiate(server, port, username, password);
+                handler.dispatchMessage(handler.obtainMessage(1, Boolean.TRUE));
             } catch (XMPPException e) {
                 Message msg = handler.obtainMessage(1, e);
                 handler.dispatchMessage(msg);

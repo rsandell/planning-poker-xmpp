@@ -33,10 +33,14 @@ public interface Constants {
     String PREF_KEY_SERVER = "server";
     String PREF_KEY_USERNAME = "username";
     String PREF_KEY_PASSWORD = "password";
+    String PREF_KEY_PORT = "port";
     String DEFAULT_SERVER = "jabber.org";
     String DEFAULT_USERNAME = "somebody@jabber.org";
     String DEFAULT_PASSWORD = "secret";
+    int DEFAULT_PORT = 5222;
     String SHARED_LOGINSETTINGS = "loginsettings";
 
     String[] CARD_VALUES = {"?", "0", "½", "1", "2", "3", "5", "8", "13", "20", "40", "100", "∞", "@"};
+
+
 }

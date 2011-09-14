@@ -35,6 +35,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Toast;
 
 /**
  * Main login activity.
@@ -46,6 +47,7 @@ public class Main extends Activity {
     private EditText serverEdit;
     private EditText userEdit;
     private EditText passwordEdit;
+    private EditText portEdit;
     private ProgressDialog loginProgressDialog;
     private SharedPreferences sharedPreferences;
 
@@ -59,11 +61,13 @@ public class Main extends Activity {
         serverEdit = (EditText)findViewById(R.id.serverEdit);
         userEdit = (EditText)findViewById(R.id.userEdit);
         passwordEdit = (EditText)findViewById(R.id.passwordEdit);
+        portEdit = (EditText)findViewById(R.id.portEdit);
 
         sharedPreferences = getSharedPreferences(Constants.SHARED_LOGINSETTINGS, Activity.MODE_PRIVATE);
         serverEdit.setText(sharedPreferences.getString(Constants.PREF_KEY_SERVER, Constants.DEFAULT_SERVER));
         userEdit.setText(sharedPreferences.getString(Constants.PREF_KEY_USERNAME, Constants.DEFAULT_USERNAME));
         passwordEdit.setText(sharedPreferences.getString(Constants.PREF_KEY_PASSWORD, Constants.DEFAULT_PASSWORD));
+        portEdit.setText(String.valueOf(sharedPreferences.getInt(Constants.PREF_KEY_PORT, Constants.DEFAULT_PORT)));
 
         Button btn = (Button)findViewById(R.id.exitBtn);
         btn.setOnClickListener(new View.OnClickListener() {
@@ -114,10 +118,19 @@ public class Main extends Activity {
         String server = serverEdit.getText().toString();
         String username = userEdit.getText().toString();
         String password = passwordEdit.getText().toString();
+        int port = Constants.DEFAULT_PORT;
+        try {
+            port = Integer.parseInt(portEdit.getText().toString());
+        } catch (NumberFormatException e) {
+            Toast.makeText(this,
+                    "Illegal port: " + portEdit.getText().toString() + ". Defaulting to " + port,
+                    Toast.LENGTH_SHORT).show();
+        }
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString(Constants.PREF_KEY_SERVER, server);
         editor.putString(Constants.PREF_KEY_USERNAME, username);
         editor.putString(Constants.PREF_KEY_PASSWORD, password);
+        editor.putInt(Constants.PREF_KEY_PORT, port);
         editor.commit();
 
         //TODO Start Activity

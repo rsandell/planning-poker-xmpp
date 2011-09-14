@@ -9,4 +9,5 @@
     <string name="exitAreYouSure">"Are you sure you want to exit?"</string>
     <string name="poker">Poker</string>
     <string name="optionInviteToPlan">Invite Friends</string>
+    <string name="port">Port</string>
 </resources>
