@@ -1,7 +1,7 @@
 /*
  *  The MIT License
  *
- *  Copyright 2011 Sony Ericsson Mobile Communications. All rights reserved.
+ *  Copyright 2011 Robert Sandell - sandell.robert@gmail.com. All rights reserved.
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -23,16 +23,10 @@
  */
 package org.joinedminds.android.planningpoker.logic;
 
-import org.jivesoftware.smack.Chat;
-import org.jivesoftware.smack.Connection;
-import org.jivesoftware.smack.ConnectionConfiguration;
-import org.jivesoftware.smack.MessageListener;
-import org.jivesoftware.smack.XMPPConnection;
-import org.jivesoftware.smack.XMPPException;
+import org.jivesoftware.smack.*;
 import org.jivesoftware.smack.packet.Message;
 
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.LinkedList;
@@ -40,23 +34,26 @@ import java.util.List;
 import java.util.Properties;
 
 /**
- * @author Robert Sandell &lt;robert.sandell@sonyericsson.com&gt;
+ * @author Robert Sandell &lt;sandell.robert@gmail.com&gt;
  */
 public class PlanningManager implements MessageListener {
 
+    public static final String PARTICIPANTS_SEPARATOR = ";";
     private String server;
     private int port;
     private String username;
     private String password;
+    private PlanningListener listener;
     private static PlanningManager instance;
     private Connection connection;
     private ChatSession session;
 
-    private PlanningManager(String server, int port, String username, String password) {
+    private PlanningManager(String server, int port, String username, String password, PlanningListener listener) {
         this.server = server;
         this.port = port;
         this.username = username;
         this.password = password;
+        this.listener = listener;
     }
 
     protected void connect() throws XMPPException {
@@ -66,9 +63,9 @@ public class PlanningManager implements MessageListener {
         connection.login(username, password, "planning-poker-xmpp");
     }
 
-    public static void initiate(String server, int port, String username, String password) throws XMPPException {
+    public static void initiate(String server, int port, String username, String password, PlanningListener listener) throws XMPPException {
         try {
-            instance = new PlanningManager(server, port, username, password);
+            instance = new PlanningManager(server, port, username, password, listener);
             instance.connect();
         } catch (XMPPException e) {
             e.printStackTrace();
@@ -84,47 +81,114 @@ public class PlanningManager implements MessageListener {
         return instance;
     }
 
-    public void startPlanning(String[] users) {
+    public void acceptInvite() throws IOException, XMPPException {
+        MessageProperties.create(Type.InviteResponse).put(MessageKey.Response, Boolean.TRUE.toString()).send(session);
+    }
+
+    public void declineInvite() throws IOException, XMPPException {
+        MessageProperties.create(Type.InviteResponse).put(MessageKey.Response, Boolean.FALSE.toString()).send(session);
+    }
+
+    public void newRound() throws IOException, XMPPException {
+        MessageProperties.create(Type.NewRound).send(session);
+    }
+
+    public void sendCardSelect(String card) throws IOException, XMPPException {
+        MessageProperties.create(Type.CardSelect).put(MessageKey.Card, card).send(session);
+    }
+
+    public void startPlanning(String[] users) throws IOException, XMPPException {
         List<Chat> chatList = new LinkedList<Chat>();
         for (String user : users) {
             Chat c = connection.getChatManager().createChat(user, "planning", this);
             chatList.add(c);
         }
-        session = new ChatSession(chatList);
+        session = new ChatSession(chatList, username);
+        session.sendInvite();
     }
 
     @Override
     public void processMessage(Chat chat, Message message) {
-        //To change body of implemented methods use File | Settings | File Templates.
+        try {
+            session.echoToOthers(message, chat);
+        } catch (XMPPException e) {
+            e.printStackTrace();
+            listener.communicationError(e);
+        }
+        try {
+            MessageProperties properties = MessageProperties.fromMessageString(message.getBody());
+            switch (properties.getType()) {
+                case Invite:
+                    notifyInvite(properties);
+                    break;
+                case NewRound:
+                    listener.newRound(properties.getProperty(MessageKey.User));
+                    break;
+                case CardSelect:
+                    listener.cardSelect(properties.getProperty(MessageKey.User),
+                            properties.getProperty(MessageKey.Card));
+                    break;
+                case InviteResponse:
+                    listener.inviteResponse(properties.getProperty(MessageKey.User),
+                            properties.getBooleanProperty(MessageKey.Response));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            listener.communicationError(e);
+        }
+    }
+
+    private void notifyInvite(MessageProperties properties) {
+        String[] participants = properties.getProperty(MessageKey.Participants, "").split(PARTICIPANTS_SEPARATOR);
+        listener.invite(properties.getProperty(MessageKey.User), participants);
     }
 
     static class ChatSession {
         private List<Chat> chatList;
+        private String username;
 
-        ChatSession(List<Chat> chatList) {
+        ChatSession(List<Chat> chatList, String username) {
             this.chatList = chatList;
+            this.username = username;
         }
 
         public void sendInvite() throws IOException, XMPPException {
             StringBuilder str = new StringBuilder();
-            for(Chat chat : chatList) {
-                str.append(chat.getParticipant()).append(";");
+            for (Chat chat : chatList) {
+                str.append(chat.getParticipant()).append(PARTICIPANTS_SEPARATOR);
             }
-            sendMessage(MessageProperties.
-                    create("type", "invite").
-                    put("participants", str.toString()).
-                    toMessageString());
+            MessageProperties.
+                    create(Type.Invite).
+                    put(MessageKey.Participants, str.toString()).
+                    send(this);
+        }
+
+        public void sendMessage(MessageProperties message) throws XMPPException, IOException {
+            sendMessage(message.put(MessageKey.User, username).toMessageString());
         }
 
         public void sendMessage(String message) throws XMPPException {
-            for(Chat chat : chatList) {
+            for (Chat chat : chatList) {
                 chat.sendMessage(message);
+            }
+        }
+
+        public void echoToOthers(Message message, Chat origin) throws XMPPException {
+            String m = message.getBody();
+            for (Chat chat : chatList) {
+                if (chat != origin) {
+                    chat.sendMessage(m);
+                }
             }
         }
     }
 
     static enum MessageKey {
-        Type, Participants
+        Type, Participants, Card, User, Response
+    }
+
+    static enum Type {
+        Invite, CardSelect, NewRound, InviteResponse
     }
 
     static class MessageProperties {
@@ -132,6 +196,18 @@ public class PlanningManager implements MessageListener {
 
         public static MessageProperties create(String name, String value) {
             return new MessageProperties().put(name, value);
+        }
+
+        public static MessageProperties create(MessageKey key, String value) {
+            return create(key.name(), value);
+        }
+
+        public static MessageProperties create(Type type) {
+            return create(MessageKey.Type.name(), type.name());
+        }
+
+        public MessageProperties put(MessageKey key, String value) {
+            return put(key.name(), value);
         }
 
         public MessageProperties put(String name, String value) {
@@ -149,6 +225,37 @@ public class PlanningManager implements MessageListener {
             MessageProperties properties = new MessageProperties();
             properties.properties.load(new StringReader(message));
             return properties;
+        }
+
+        public void send(ChatSession session) throws IOException, XMPPException {
+            session.sendMessage(this);
+        }
+
+        public String getProperty(MessageKey key) {
+            return properties.getProperty(key.name());
+        }
+
+        public String getProperty(MessageKey key, String defaultValue) {
+            return properties.getProperty(key.name(), defaultValue);
+        }
+
+        public Type getType() {
+            String str = getProperty(MessageKey.Type);
+            if (str != null) {
+                try {
+                    return Type.valueOf(str);
+                } catch (IllegalArgumentException e) {
+                    System.err.println("Bad type from sender: " + str + ": " + e.getMessage());
+                    return null;
+                }
+            } else {
+                return null;
+            }
+        }
+
+        public boolean getBooleanProperty(MessageKey key) {
+            String val = getProperty(key);
+            return Boolean.TRUE.toString().equalsIgnoreCase(val);
         }
     }
 }
