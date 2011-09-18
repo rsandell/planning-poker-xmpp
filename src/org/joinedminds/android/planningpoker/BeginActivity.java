@@ -7,11 +7,13 @@ import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 import org.jivesoftware.smack.XMPPException;
 import org.joinedminds.android.planningpoker.logic.PlanningListener;
@@ -29,15 +31,20 @@ import static org.joinedminds.android.planningpoker.Constants.*;
 public class BeginActivity extends Activity implements PlanningListener {
 
     public static final int DIALOG_LOGIN_PROGRESS = 2;
-    public static final int DIALOG_INVITE = 4;
+    public static final int DIALOG_SEND_INVITE = 4;
+    public static final int DIALOG_INVITE_RECEIVED = 5;
     private SharedPreferences preferences;
     private ProgressDialog loginProgressDialog;
+    private static final String DIALOG_INVITE_RECEIVED_FROM_USER = "from-user";
+    private static final String DIALOG_INVITE_RECEIVED_PARTICIPANTS = "participants";
 
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         preferences = getSharedPreferences(SHARED_LOGINSETTINGS, MODE_PRIVATE);
         setContentView(R.layout.startplanning);
-        startLogin();
+        if (!PlanningManager.isInitiated() || !PlanningManager.getInstance().isConnected()) {
+            startLogin();
+        }
     }
 
 
@@ -49,25 +56,84 @@ public class BeginActivity extends Activity implements PlanningListener {
                 loginProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
                 loginProgressDialog.setMessage("Logging in...");
                 return loginProgressDialog;
-            case DIALOG_INVITE:
+            case DIALOG_SEND_INVITE:
                 return createInviteDialog();
+            case DIALOG_INVITE_RECEIVED:
+                return createInviteReceivedDialog();
         }
         return null;
+    }
+
+    @Override
+    protected void onPrepareDialog(int id, Dialog dialog, Bundle args) {
+        super.onPrepareDialog(id, dialog, args);
+        switch (id) {
+            case DIALOG_INVITE_RECEIVED:
+                Resources resources = getResources();
+                String from = args.getString(DIALOG_INVITE_RECEIVED_FROM_USER);
+                String participants = nlPerItem(args.getStringArray(DIALOG_INVITE_RECEIVED_PARTICIPANTS));
+                AlertDialog alert = (AlertDialog)dialog;
+                alert.setMessage(resources.getString(R.string.gotInvite, from, participants));
+                break;
+
+        }
+    }
+
+    private String nlPerItem(String[] array) {
+        StringBuilder str = new StringBuilder();
+        for (String i : array) {
+            str.append(i).append("\n");
+        }
+        return str.toString().trim();
+    }
+
+    private Dialog createInviteReceivedDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage("Someone wants to play")
+                .setCancelable(false)
+                .setPositiveButton(R.string.accept, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        System.out.println("ACCEPT!");
+                        try {
+                            PlanningManager.getInstance().acceptInvite();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            communicationError(e);
+                        }
+                        startPlanningActivity();
+                    }
+                })
+                .setNegativeButton(R.string.decline, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        System.out.println("DECLINE");
+                        try {
+                            PlanningManager.getInstance().declineInvite();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            communicationError(e);
+                        }
+                        dialog.cancel();
+                    }
+                });
+        AlertDialog alertDialog = builder.create();
+        return alertDialog;
     }
 
     private Dialog createInviteDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         final EditText editText = new EditText(this);
+        editText.setText(preferences.getString(Constants.PREF_KEY_LAST_INVITED, ""));
         builder.setMessage("Provide the user names to invite separated by \";\"") //TODO use xmpp roster
                 .setCancelable(false)
                 .setView(editText)
                 .setPositiveButton(R.string.invite, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
-                        String[] users = editText.getText().toString().split(";");
+                        String invited = editText.getText().toString();
+                        preferences.edit().putString(Constants.PREF_KEY_LAST_INVITED, invited).commit();
+                        String[] users = invited.split(";");
                         try {
                             PlanningManager.getInstance().startPlanning(users);
-                            Intent startIntent = new Intent(BeginActivity.this, PlanningActivity.class);
-                            startActivity(startIntent);
+                            startPlanningActivity();
                         } catch (Exception e) {
                             e.printStackTrace();
                             communicationError(e);
@@ -83,8 +149,37 @@ public class BeginActivity extends Activity implements PlanningListener {
         return builder.create();
     }
 
+    @Override
+    public void communicationError(final Exception ex) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(BeginActivity.this, ex.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    @Override
+    public void invite(final String fromUser, final String[] participants) {
+        final Bundle args = new Bundle();
+        args.putString(DIALOG_INVITE_RECEIVED_FROM_USER, fromUser);
+        args.putStringArray(DIALOG_INVITE_RECEIVED_PARTICIPANTS, participants);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                showDialog(DIALOG_INVITE_RECEIVED, args);
+            }
+        });
+    }
+
+    private void startPlanningActivity() {
+        Intent startIntent = new Intent(this, PlanningActivity.class);
+        startActivity(startIntent);
+    }
+
+    @SuppressWarnings("unused")
     public void inviteClick(View v) {
-        showDialog(DIALOG_INVITE);
+        showDialog(DIALOG_SEND_INVITE);
     }
 
     private void startLogin() {
@@ -129,16 +224,6 @@ public class BeginActivity extends Activity implements PlanningListener {
     };
 
     @Override
-    public void communicationError(Exception ex) {
-        Toast.makeText(this, ex.getMessage(), Toast.LENGTH_LONG).show();
-    }
-
-    @Override
-    public void invite(String fromUser, String[] participants) {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
     public void newRound(String fromUser) {
         //Ignore?
     }
@@ -149,8 +234,19 @@ public class BeginActivity extends Activity implements PlanningListener {
     }
 
     @Override
-    public void inviteResponse(String fromUser, boolean accepted) {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public void inviteResponse(final String fromUser, final boolean accepted) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Resources res = getResources();
+                if (accepted) {
+                    Toast.makeText(BeginActivity.this, res.getString(R.string.userAccepted, fromUser), Toast.LENGTH_LONG).show();
+                } else {
+                    Toast.makeText(BeginActivity.this, res.getString(R.string.userDeclined, fromUser), Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+
     }
 
     private static class LoginThread extends Thread {

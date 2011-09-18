@@ -34,6 +34,7 @@ public interface Constants {
     String PREF_KEY_USERNAME = "username";
     String PREF_KEY_PASSWORD = "password";
     String PREF_KEY_PORT = "port";
+    String PREF_KEY_LAST_INVITED = "last-invited";
     String DEFAULT_SERVER = "jabber.org";
     String DEFAULT_USERNAME = "somebody@jabber.org";
     String DEFAULT_PASSWORD = "secret";

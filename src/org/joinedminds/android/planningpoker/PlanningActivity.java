@@ -28,6 +28,7 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.SharedPreferences;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -40,6 +41,8 @@ import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
 import org.joinedminds.android.planningpoker.logic.PlanningListener;
 import org.joinedminds.android.planningpoker.logic.PlanningManager;
+
+import java.io.IOException;
 
 import static org.joinedminds.android.planningpoker.Constants.*;
 import static org.joinedminds.android.planningpoker.Constants.CARD_VALUES;
@@ -64,7 +67,6 @@ public class PlanningActivity extends Activity implements PlanningListener {
         gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Toast.makeText(PlanningActivity.this, "Click", Toast.LENGTH_SHORT).show();
                 if (view instanceof TextView) {
                     cardSelected(((TextView)view).getText().toString());
                 }
@@ -77,8 +79,13 @@ public class PlanningActivity extends Activity implements PlanningListener {
     private void cardSelected(String s) {
         Toast.makeText(this, "Card Selected: " + s, Toast.LENGTH_SHORT).show();
         System.out.println("Card Selected: " + s);
+        try {
+            PlanningManager.getInstance().sendCardSelect(s);
+        } catch (Exception e) {
+            communicationError(e);
+            e.printStackTrace();
+        }
     }
-
 
     @Override
     protected Dialog onCreateDialog(int id) {
@@ -105,12 +112,22 @@ public class PlanningActivity extends Activity implements PlanningListener {
     }
 
     @Override
-    public void cardSelect(String fromUser, String card) {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public void cardSelect(final String fromUser, final String card) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(PlanningActivity.this, fromUser + " Card: " + card, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     @Override
     public void inviteResponse(String fromUser, boolean accepted) {
-        //To change body of implemented methods use File | Settings | File Templates.
+        Resources res = getResources();
+        if (accepted) {
+            Toast.makeText(this, res.getString(R.string.userAccepted, fromUser), Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(this, res.getString(R.string.userDeclined, fromUser), Toast.LENGTH_LONG).show();
+        }
     }
 }

@@ -29,6 +29,7 @@ import org.jivesoftware.smack.packet.Message;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
@@ -36,9 +37,10 @@ import java.util.Properties;
 /**
  * @author Robert Sandell &lt;sandell.robert@gmail.com&gt;
  */
-public class PlanningManager implements MessageListener {
+public class PlanningManager implements MessageListener, ChatManagerListener {
 
     public static final String PARTICIPANTS_SEPARATOR = ";";
+    public static final String APP_CHAT_RESOURCE = "planning-poker-xmpp";
     private String server;
     private int port;
     private String username;
@@ -60,7 +62,8 @@ public class PlanningManager implements MessageListener {
         ConnectionConfiguration config = new ConnectionConfiguration(server, port);
         connection = new XMPPConnection(config);
         connection.connect();
-        connection.login(username, password, "planning-poker-xmpp");
+        connection.login(username, password, APP_CHAT_RESOURCE);
+        connection.getChatManager().addChatListener(this);
     }
 
     public void setPlanningListener(PlanningListener listener) {
@@ -78,11 +81,19 @@ public class PlanningManager implements MessageListener {
         }
     }
 
+    public static boolean isInitiated() {
+        return instance != null;
+    }
+
     public static PlanningManager getInstance() {
         if (instance == null) {
             throw new IllegalStateException("You need to initiate the manager first.");
         }
         return instance;
+    }
+
+    public boolean isConnected() {
+        return connection != null && connection.isConnected();
     }
 
     public void acceptInvite() throws IOException, XMPPException {
@@ -112,6 +123,17 @@ public class PlanningManager implements MessageListener {
     }
 
     @Override
+    public void chatCreated(Chat chat, boolean createdLocally) {
+        if (!createdLocally) {
+            session = new ChatSession(Arrays.asList(chat), username);
+            chat.addMessageListener(this);
+            System.out.println("Chat session created!");
+        } else {
+
+        }
+    }
+
+    @Override
     public void processMessage(Chat chat, Message message) {
         try {
             session.echoToOthers(message, chat);
@@ -136,8 +158,13 @@ public class PlanningManager implements MessageListener {
                                 properties.getProperty(MessageKey.Card));
                         break;
                     case InviteResponse:
+                        boolean accepted = properties.getBooleanProperty(MessageKey.Response);
+                        if (!accepted) {
+                            session.removeChat(chat);
+                        }
                         listener.inviteResponse(properties.getProperty(MessageKey.User),
-                                properties.getBooleanProperty(MessageKey.Response));
+                                accepted);
+                        break;
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -150,6 +177,8 @@ public class PlanningManager implements MessageListener {
         String[] participants = properties.getProperty(MessageKey.Participants, "").split(PARTICIPANTS_SEPARATOR);
         listener.invite(properties.getProperty(MessageKey.User), participants);
     }
+
+
 
     static class ChatSession {
         private List<Chat> chatList;
@@ -189,6 +218,10 @@ public class PlanningManager implements MessageListener {
                 }
             }
         }
+
+        public void removeChat(Chat chat) {
+            chatList.remove(chat);
+        }
     }
 
     static enum MessageKey {
@@ -211,7 +244,7 @@ public class PlanningManager implements MessageListener {
         }
 
         public static MessageProperties create(Type type) {
-            return create(MessageKey.Type.name(), type.name());
+            return create(MessageKey.Type, type.name());
         }
 
         public MessageProperties put(MessageKey key, String value) {
