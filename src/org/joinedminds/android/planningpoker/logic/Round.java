@@ -12,7 +12,7 @@ public class Round {
 
     private List<Player> players;
 
-    public Round(String[] players) {
+    public Round(List<String> players) {
         this.players = new LinkedList<Player>();
         for(String name : players) {
             this.players.add(new Player(name));

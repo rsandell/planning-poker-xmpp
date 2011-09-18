@@ -13,13 +13,12 @@ import android.os.Handler;
 import android.os.Message;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.TextView;
 import android.widget.Toast;
 import org.jivesoftware.smack.XMPPException;
 import org.joinedminds.android.planningpoker.logic.PlanningListener;
 import org.joinedminds.android.planningpoker.logic.PlanningManager;
-
-import java.io.IOException;
+import org.joinedminds.android.planningpoker.logic.Round;
+import org.joinedminds.android.planningpoker.logic.io.ChatSession;
 
 import static org.joinedminds.android.planningpoker.Constants.*;
 
@@ -224,17 +223,17 @@ public class BeginActivity extends Activity implements PlanningListener {
     };
 
     @Override
-    public void newRound(String fromUser) {
+    public void newRound(String fromUser, Round round) {
         //Ignore?
     }
 
     @Override
-    public void cardSelect(String fromUser, String card) {
+    public void cardSelect(String fromUser, String card, Round round) {
         //Ignore
     }
 
     @Override
-    public void inviteResponse(final String fromUser, final boolean accepted) {
+    public void inviteResponse(final String fromUser, final boolean accepted, ChatSession.Participants participants) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {

@@ -24,6 +24,8 @@
 
 package org.joinedminds.android.planningpoker.logic;
 
+import org.joinedminds.android.planningpoker.logic.io.ChatSession;
+
 /**
  * Created: 9/14/11 7:56 PM
  *
@@ -48,20 +50,23 @@ public interface PlanningListener {
     /**
      * Called when the scrum master requests a new round of poker.
      * @param fromUser the scrum master.
+     * @param round
      */
-    void newRound(String fromUser);
+    void newRound(String fromUser, Round round);
 
     /**
      * Called when a user has selected a card.
      * @param fromUser the user who selected a card.
      * @param card the card selected.
+     * @param round
      */
-    void cardSelect(String fromUser, String card);
+    void cardSelect(String fromUser, String card, Round round);
 
     /**
      * Called when a user has responded to an invite.
      * @param fromUser the user who responded.
      * @param accepted if the user accepted or not.
+     * @param participants
      */
-    void inviteResponse(String fromUser, boolean accepted);
+    void inviteResponse(String fromUser, boolean accepted, ChatSession.Participants participants);
 }
