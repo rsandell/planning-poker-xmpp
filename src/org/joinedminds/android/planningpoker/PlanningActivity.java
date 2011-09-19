@@ -28,9 +28,12 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.content.res.Resources;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.*;
 import org.joinedminds.android.planningpoker.components.ParticipantsAcceptanceAdapter;
+import org.joinedminds.android.planningpoker.components.PlayerCardsAdapter;
 import org.joinedminds.android.planningpoker.logic.PlanningListener;
 import org.joinedminds.android.planningpoker.logic.PlanningManager;
 import org.joinedminds.android.planningpoker.logic.Round;
@@ -45,11 +48,68 @@ import static org.joinedminds.android.planningpoker.Constants.CARD_VALUES;
  */
 public class PlanningActivity extends Activity implements PlanningListener {
 
-    public static final int OPTION_INVITE_TO_PLAN = 3;
+    /**
+     * Data structure for the view players waiting list.
+     */
+    class PlayersWaitingList {
+        ListView playersWaitingList;
+        ParticipantsAcceptanceAdapter adapter;
 
-    private GridView gridView;
-    private ListView playersWaitingList;
-    private ParticipantsAcceptanceAdapter participantsAcceptanceAdapter;
+        PlayersWaitingList() {
+            setContentView(R.layout.playerslist);
+            playersWaitingList = (ListView)findViewById(R.id.playersWaitingList);
+            adapter = new ParticipantsAcceptanceAdapter(PlanningActivity.this,
+                    PlanningManager.getInstance().getParticipants());
+            playersWaitingList.setAdapter(adapter);
+        }
+    }
+
+    /**
+     * Data structure for the select card view.
+     */
+    class CardSelectView {
+        GridView gridView;
+
+        CardSelectView() {
+            setContentView(R.layout.cardgrid);
+            gridView = (GridView)findViewById(R.id.cardgrid);
+            gridView.setAdapter(new ArrayAdapter<String>(PlanningActivity.this, R.layout.card, CARD_VALUES));
+            gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                    if (view instanceof TextView) {
+                        cardSelected(((TextView)view).getText().toString());
+                    }
+                }
+            });
+        }
+    }
+
+    class CardsShowAndTellView {
+        GridView gridView;
+        TextView myCard;
+        TextView myName;
+        PlayerCardsAdapter adapter;
+
+        CardsShowAndTellView(String myName, String myCard, Round round) {
+            setContentView(R.layout.card_showandtell);
+            gridView = (GridView)findViewById(R.id.cardgrid_showandtell);
+            LinearLayout l = (LinearLayout)findViewById(R.id.showandtell_me);
+            this.myCard = (TextView)l.findViewById(R.id.showandtell_card);
+            this.myName = (TextView)l.findViewById(R.id.showandtell_playername);
+            this.myCard.setText(myCard);
+            this.myName.setText(myName);
+            adapter = new PlayerCardsAdapter(PlanningActivity.this, round);
+            gridView.setAdapter(adapter);
+        }
+    }
+
+
+    private PlayersWaitingList playersWaitingList;
+    private CardSelectView cardSelectView;
+    private CardsShowAndTellView cardsShowAndTellView;
+    private volatile Round currentRound;
+    private static final int MENU_OPTION_NEW_ROUND = 9;
 
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -58,47 +118,31 @@ public class PlanningActivity extends Activity implements PlanningListener {
     }
 
     private void disableViews() {
-        disableViewCardGrid();
-        disableViewPlayersList();
-    }
-
-    private void disableViewCardGrid() {
-        gridView = null;
-    }
-
-    private void disableViewPlayersList() {
+        cardSelectView = null;
         playersWaitingList = null;
-        participantsAcceptanceAdapter = null;
+        cardsShowAndTellView = null;
     }
 
-    private void setViewPlayersList() {
+    private synchronized void setViewPlayersList() {
         disableViews();
-        setContentView(R.layout.playerslist);
-        playersWaitingList = (ListView)findViewById(R.id.playersWaitingList);
-        participantsAcceptanceAdapter = new ParticipantsAcceptanceAdapter(this,
-                PlanningManager.getInstance().getParticipants());
-        playersWaitingList.setAdapter(participantsAcceptanceAdapter);
+        playersWaitingList = new PlayersWaitingList();
     }
 
-    private void setViewCardGrid() {
+    private synchronized void setViewCardGrid() {
         disableViews();
-        setContentView(R.layout.cardgrid);
-        gridView = (GridView)findViewById(R.id.cardgrid);
-        gridView.setAdapter(new ArrayAdapter<String>(this, R.layout.card, CARD_VALUES));
-        gridView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                if (view instanceof TextView) {
-                    cardSelected(((TextView)view).getText().toString());
-                }
-            }
-        });
+        cardSelectView = new CardSelectView();
+    }
+
+    private synchronized void setCardsShowAndTellView(String myCard, Round round) {
+        disableViews();
+        cardsShowAndTellView = new CardsShowAndTellView(PlanningManager.getInstance().getUsername(), myCard, round);
     }
 
 
     private void cardSelected(String s) {
         Toast.makeText(this, "Card Selected: " + s, Toast.LENGTH_SHORT).show();
         System.out.println("Card Selected: " + s);
+        setCardsShowAndTellView(s, currentRound);
         try {
             PlanningManager.getInstance().sendCardSelect(s);
         } catch (Exception e) {
@@ -115,6 +159,39 @@ public class PlanningActivity extends Activity implements PlanningListener {
         return null;
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        super.onCreateOptionsMenu(menu);
+        menu.add(0, MENU_OPTION_NEW_ROUND, Menu.NONE, getString(R.string.newRound));
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        super.onOptionsItemSelected(item);
+        switch (item.getItemId()) {
+            case MENU_OPTION_NEW_ROUND: {
+                callNewRound();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void callNewRound() {
+        try {
+            PlanningManager.getInstance().newRound();
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    setViewCardGrid();
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+            communicationError(e);
+        }
+    }
 
     @Override
     public void communicationError(final Exception ex) {
@@ -132,28 +209,38 @@ public class PlanningActivity extends Activity implements PlanningListener {
     }
 
     @Override
-    public void newRound(String fromUser, Round round) {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void cardSelect(final String fromUser, final String card, final Round round) {
+    public synchronized void newRound(final String fromUser, final Round round) {
+        currentRound = round;
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                Toast.makeText(PlanningActivity.this, fromUser + " Selected a card", Toast.LENGTH_SHORT).show();
+                setViewCardGrid();
+                Toast.makeText(PlanningActivity.this, fromUser + " requests a new round.", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
     @Override
-    public void inviteResponse(final String fromUser, final boolean accepted, final ChatSession.Participants participants) {
+    public synchronized void cardSelect(final String fromUser, final String card, final Round round) {
+        currentRound = round;
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                if (participantsAcceptanceAdapter != null) {
-                    participantsAcceptanceAdapter.setParticipants(participants.getPlayers());
-                    participantsAcceptanceAdapter.notifyDataSetChanged();
+                Toast.makeText(PlanningActivity.this, fromUser + " Selected a card", Toast.LENGTH_SHORT).show();
+                if (cardsShowAndTellView != null) {
+                    cardsShowAndTellView.adapter.setRound(round);
+                }
+            }
+        });
+    }
+
+    @Override
+    public synchronized void inviteResponse(final String fromUser, final boolean accepted, final ChatSession.Participants participants) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (playersWaitingList != null) {
+                    playersWaitingList.adapter.setParticipants(participants.getPlayers());
                 }
                 Resources res = getResources();
                 if (accepted) {

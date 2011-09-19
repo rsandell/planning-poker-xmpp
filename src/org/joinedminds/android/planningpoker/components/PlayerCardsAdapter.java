@@ -25,50 +25,40 @@
 package org.joinedminds.android.planningpoker.components;
 
 import android.app.Activity;
-import android.content.Context;
-import android.graphics.Color;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
 import org.joinedminds.android.planningpoker.R;
-import org.joinedminds.android.planningpoker.logic.io.ChatSession;
-
-import java.util.List;
+import org.joinedminds.android.planningpoker.logic.Round;
 
 /**
- * Created: 9/18/11 9:49 PM
+ * Created: 9/19/11 10:15 PM
  *
  * @author Robert Sandell &lt;sandell.robert@gmail.com&gt;
  */
-public class ParticipantsAcceptanceAdapter extends BaseAdapter {
-
-    private List<ChatSession.Participants.Player> participants;
+public class PlayerCardsAdapter extends BaseAdapter {
     private Activity context;
+    private Round round;
 
-    public ParticipantsAcceptanceAdapter(Activity context, List<ChatSession.Participants.Player> participants) {
+    public PlayerCardsAdapter(final Activity context, Round round) {
         this.context = context;
-        this.participants = participants;
+        this.round = round;
     }
 
-    public synchronized List<ChatSession.Participants.Player> getParticipants() {
-        return participants;
-    }
-
-    public synchronized void setParticipants(List<ChatSession.Participants.Player> participants) {
-        this.participants = participants;
-        System.out.println("Participants set: " + this.participants);
-        notifyDataSetChanged();
+    public synchronized void setRound(Round r) {
+        this.round = r;
+        this.notifyDataSetChanged();
     }
 
     @Override
     public int getCount() {
-        return getParticipants().size();
+        return round.getPlayers().size();
     }
 
     @Override
-    public ChatSession.Participants.Player getItem(int i) {
-        return getParticipants().get(i);
+    public Object getItem(int i) {
+        return round.getPlayers().get(i);
     }
 
     @Override
@@ -78,32 +68,23 @@ public class ParticipantsAcceptanceAdapter extends BaseAdapter {
 
     @Override
     public View getView(int i, View convertView, ViewGroup viewGroup) {
-        ChatSession.Participants.Player player = getParticipants().get(i);
         ViewHolder holder;
-
         if (convertView == null) {
-            convertView = context.getLayoutInflater().inflate(R.layout.player_status, null);
+            convertView = context.getLayoutInflater().inflate(R.layout.player_card, null);
             holder = new ViewHolder(
-                    (TextView)convertView.findViewById(R.id.playerStatusCard),
-                    (TextView)convertView.findViewById(R.id.playerStatusName));
+                    (TextView)convertView.findViewById(R.id.showandtell_card),
+                    (TextView)convertView.findViewById(R.id.showandtell_playername));
             convertView.setTag(holder);
         } else {
             holder = (ViewHolder)convertView.getTag();
         }
-
-        switch (player.getStatus()) {
-            case Accepted:
-                holder.card.setText("OK");
-                holder.card.setTextColor(Color.GREEN);
-                break;
-            case Declined:
-                holder.card.setText("NO");
-                holder.card.setTextColor(Color.RED);
-                break;
-            case Unknown:
-                holder.card.setText("?");
-                holder.card.setTextColor(Color.GRAY);
-                break;
+        Round.Player player = round.getPlayers().get(i);
+        if (player.getCard() == null) {
+            holder.card.setText("...");
+        } else if (round.areAllPlayersDone()) {
+            holder.card.setText(player.getCard());
+        } else {
+            holder.card.setText("X");
         }
         holder.name.setText(player.getName());
         return convertView;

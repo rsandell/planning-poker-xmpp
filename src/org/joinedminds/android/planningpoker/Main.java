@@ -36,6 +36,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
+import org.joinedminds.android.planningpoker.logic.PlanningManager;
 
 /**
  * Main login activity.
@@ -101,6 +102,7 @@ public class Main extends Activity {
                 .setCancelable(false)
                 .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
+                        PlanningManager.close();
                         Main.this.finish();
                     }
                 })

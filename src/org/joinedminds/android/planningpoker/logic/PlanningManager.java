@@ -81,10 +81,15 @@ public class PlanningManager implements MessageListener, ChatManagerListener {
         }
     }
 
+    public String getUsername() {
+        return username;
+    }
+
     public List<ChatSession.Participants.Player> getParticipants() {
         if (session != null) {
             return session.getParticipants().getPlayers();
         }
+        System.err.println("[getParticipants()] No session! returning empty list!");
         return new LinkedList<ChatSession.Participants.Player>();
     }
 
@@ -105,10 +110,17 @@ public class PlanningManager implements MessageListener, ChatManagerListener {
 
     public void acceptInvite() throws IOException, XMPPException {
         MessageProperties.create(Type.InviteResponse).put(MessageKey.Response, Boolean.TRUE.toString()).send(session);
+        if (session != null) {
+            session.getParticipants().setAccepted(username);
+        }
     }
 
     public void declineInvite() throws IOException, XMPPException {
         MessageProperties.create(Type.InviteResponse).put(MessageKey.Response, Boolean.FALSE.toString()).send(session);
+        if (session != null) {
+            session.close(this);
+            session = null;
+        }
     }
 
     public void newRound() throws IOException, XMPPException {
@@ -118,6 +130,9 @@ public class PlanningManager implements MessageListener, ChatManagerListener {
 
     public void sendCardSelect(String card) throws IOException, XMPPException {
         MessageProperties.create(Type.CardSelect).put(MessageKey.Card, card).send(session);
+        if (round != null) {
+            round.setCard(username, card);
+        }
     }
 
     public void startPlanning(String[] users) throws IOException, XMPPException {
@@ -128,7 +143,7 @@ public class PlanningManager implements MessageListener, ChatManagerListener {
         }
         session = new ChatSession(chatList, username);
         session.sendInvite();
-        acceptInvite();
+        //acceptInvite();
     }
 
     @Override
@@ -142,8 +157,22 @@ public class PlanningManager implements MessageListener, ChatManagerListener {
         }
     }
 
+    private void disconnect() {
+        if (session != null) {
+            session.close(this);
+            session = null;
+        }
+        if (connection != null) {
+            connection.disconnect();
+            connection = null;
+        }
+        round = null;
+        listener = null;
+    }
+
+
     @Override
-    public void processMessage(Chat chat, Message message) {
+    public synchronized void processMessage(Chat chat, Message message) {
         try {
             session.echoToOthers(message, chat);
         } catch (XMPPException e) {
@@ -167,7 +196,7 @@ public class PlanningManager implements MessageListener, ChatManagerListener {
                         String user1 = properties.getProperty(MessageKey.User);
                         String card = properties.getProperty(MessageKey.Card);
                         if (round != null) {
-                            round.setCard(user1,  card);
+                            round.setCard(user1, card);
                         }
                         listener.cardSelect(user1, card, round);
                         break;
@@ -191,9 +220,22 @@ public class PlanningManager implements MessageListener, ChatManagerListener {
 
     private void notifyInvite(MessageProperties properties) {
         String[] participants = properties.getProperty(MessageKey.Participants, "").split(PARTICIPANTS_SEPARATOR);
-        listener.invite(properties.getProperty(MessageKey.User), participants);
+        String fromUser = properties.getProperty(MessageKey.User);
+        if (session != null) {
+            session.initParticipants(fromUser, participants);
+        }
+        if (listener != null) {
+            listener.invite(fromUser, participants);
+        }
     }
 
+    public static void close() {
+        if (isInitiated()) {
+            instance.disconnect();
+            instance.connection = null;
+            instance = null;
+        }
+    }
 
     public static enum MessageKey {
         Type, Participants, Card, User, Response
@@ -202,7 +244,6 @@ public class PlanningManager implements MessageListener, ChatManagerListener {
     public static enum Type {
         Invite, CardSelect, NewRound, InviteResponse
     }
-
 
 
 }

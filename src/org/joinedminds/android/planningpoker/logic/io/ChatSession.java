@@ -1,3 +1,27 @@
+/*
+ *  The MIT License
+ *
+ *  Copyright 2011 Robert Sandell - sandell.robert@gmail.com. All rights reserved.
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in
+ *  all copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ *  THE SOFTWARE.
+ */
+
 package org.joinedminds.android.planningpoker.logic.io;
 
 import org.jivesoftware.smack.Chat;
@@ -28,6 +52,8 @@ public class ChatSession {
     public void sendInvite() throws IOException, XMPPException {
         StringBuilder str = new StringBuilder();
         participants = new Participants();
+        participants.add(username);
+        participants.setAccepted(username);
         for (Chat chat : chatList) {
             String participant = chat.getParticipant();
             str.append(participant).append(PlanningManager.PARTICIPANTS_SEPARATOR);
@@ -37,6 +63,15 @@ public class ChatSession {
                 create(PlanningManager.Type.Invite).
                 put(PlanningManager.MessageKey.Participants, str.toString()).
                 send(this);
+    }
+
+    public void initParticipants(String fromUser, String[] others) {
+        participants = new Participants();
+        participants.add(fromUser);
+        participants.setAccepted(fromUser);
+        for (String p : others) {
+            participants.add(p);
+        }
     }
 
     public void sendMessage(MessageProperties message) throws XMPPException, IOException {
@@ -87,6 +122,12 @@ public class ChatSession {
         participants.setAccepted(user);
     }
 
+    public void close(PlanningManager planningManager) {
+        for (Chat c : chatList) {
+            c.removeMessageListener(planningManager);
+        }
+    }
+
     public static class Participants {
 
         private List<Player> players;
@@ -96,6 +137,7 @@ public class ChatSession {
         }
 
         public void add(String participant) {
+            System.out.println("Adding " + participant);
             players.add(new Player(participant));
         }
 
@@ -111,8 +153,11 @@ public class ChatSession {
             for (Player player : players) {
                 if (player.name.equals(name)) {
                     player.setStatus(status);
+                    System.out.println("Status changed for " + player.getName() + " to " + status.name());
+                    return;
                 }
             }
+            System.err.println("Status could not be set for " + name + " (not found)");
         }
 
         public List<Player> getPlayers() {
